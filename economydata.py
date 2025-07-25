@@ -70,18 +70,25 @@ pop_df['total_pop']  = pop_df[all_age_cols].sum(axis=1)
 pop_df['work_pop']   = pop_df[work_cols].sum(axis=1)
 pop_df['work_ratio'] = pop_df['work_pop'] / pop_df['total_pop'] * 100
 
-# PPI, TFR 전처리
+# PPI, TFR 전처리 & 중복 처리
 ppi_region = next((c for c in ppi_df.columns if '지역' in c or '행정' in c), ppi_df.columns[0])
 ppi_value  = next((c for c in ppi_df.columns if re.search(r"ppi|PPI|구매", c, re.I)), ppi_df.columns[1])
 ppi_df = ppi_df[[ppi_region, ppi_value]].rename(columns={ppi_region: region_col, ppi_value: 'PPI'})
+ppi_df[region_col] = ppi_df[region_col].astype(str).str.strip()
 ppi_df['PPI'] = pd.to_numeric(ppi_df['PPI'], errors='coerce')
+ppi_df = ppi_df.groupby(region_col, as_index=False)['PPI'].mean()
 
 fert_region = next((c for c in fert_df.columns if '지역' in c or '행정' in c), fert_df.columns[0])
 fert_value  = next((c for c in fert_df.columns if '합계출산율' in c), fert_df.columns[1])
 fert_df = fert_df[[fert_region, fert_value]].rename(columns={fert_region: region_col, fert_value: 'TFR'})
+fert_df[region_col] = fert_df[region_col].astype(str).str.strip()
 fert_df['TFR'] = pd.to_numeric(fert_df['TFR'], errors='coerce')
+fert_df = fert_df.groupby(region_col, as_index=False)['TFR'].mean()
 
 # 머지 및 지수 계산
+merged = pop_df[[region_col, 'total_pop', 'work_ratio']].copy()
+merged[region_col] = merged[region_col].astype(str).str.strip()
+merged = merged.merge(ppi_df, on=region_col, how='inner').merge(fert_df, on=region_col, how='inner')
 merged = pop_df[[region_col, 'total_pop', 'work_ratio']].merge(ppi_df, on=region_col, how='inner').merge(fert_df, on=region_col, how='inner')
 merged = merged.dropna(subset=['PPI', 'TFR'])
 merged['EDI'] = merged['PPI'] * (merged['work_ratio'] / 100)
