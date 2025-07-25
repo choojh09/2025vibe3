@@ -19,8 +19,8 @@ if not st.session_state.bookmarks:
         "name": "우리 집",
         "lat": 35.147608780240326,
         "lon": 126.88105069987196,
-        "address": "우리 집 (광주광역시 추정)",
-        "desc": "편안한 나의 보금자리"
+        "address": "우리 집 (광주광역시 서구 화운로 94)",
+        "desc": "집"
     })
 
 if "clicked_location" not in st.session_state:
