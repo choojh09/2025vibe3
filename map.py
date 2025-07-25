@@ -5,25 +5,25 @@ import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
-# 페이지 설정
-st.set_page_config(page_title="📍 북마크 지도 with 삭제", layout="wide")
-st.title("📍 나만의 북마크 지도 (삭제 기능 포함)")
+# 페이지 기본 설정
+st.set_page_config(page_title="📍 나만의 북마크 지도", layout="wide")
+st.title("📍 나만의 북마크 지도 (주소 + 삭제 기능 포함)")
 
-# 북마크 초기화
-if 'bookmarks' not in st.session_state:
+# 상태 초기화
+if "bookmarks" not in st.session_state:
     st.session_state.bookmarks = []
 
-if 'clicked_location' not in st.session_state:
+if "clicked_location" not in st.session_state:
     st.session_state.clicked_location = None
 
-if 'clicked_address' not in st.session_state:
+if "clicked_address" not in st.session_state:
     st.session_state.clicked_address = ""
 
 # 지도 생성
 m = folium.Map(location=[37.5665, 126.9780], zoom_start=11)
 
-# 기존 북마크 마커 표시
-for i, b in enumerate(st.session_state.bookmarks):
+# 북마크 마커 표시
+for b in st.session_state.bookmarks:
     popup_html = f"""
     <b>{b['name']}</b><br>
     {b['desc']}<br>
@@ -35,18 +35,20 @@ for i, b in enumerate(st.session_state.bookmarks):
         popup=popup_html
     ).add_to(m)
 
-# 지도 표시 및 클릭 좌표 수집
+# 지도 표시 및 클릭 감지
 clicked_data = st_folium(m, width=1000, height=600)
 
-# 역지오코딩 준비
-geolocator = Nominatim(user_agent="bookmark_app_with_delete")
-reverse = RateLimiter(geolocator.reverse, min_delay_seconds=1)
+# 클릭한 좌표 처리
+clicked = clicked_data.get("last_clicked") if clicked_data else None
 
-# 클릭 처리
-if clicked_data and clicked_data.get("last_clicked"):
-    st.session_state.clicked_location = clicked_data["last_clicked"]
-    lat = st.session_state.clicked_location["lat"]
-    lon = st.session_state.clicked_location["lng"]
+if clicked:
+    st.session_state.clicked_location = clicked
+    lat = clicked.get("lat")
+    lon = clicked.get("lng")
+
+    # 주소 검색 (역지오코딩)
+    geolocator = Nominatim(user_agent="bookmark_app")
+    reverse = RateLimiter(geolocator.reverse, min_delay_seconds=1)
 
     try:
         location = reverse((lat, lon), language="ko")
@@ -60,6 +62,7 @@ if clicked_data and clicked_data.get("last_clicked"):
 st.sidebar.header("➕ 북마크 추가")
 
 name = st.sidebar.text_input("장소 이름")
+
 lat_val = str(st.session_state.clicked_location["lat"]) if st.session_state.clicked_location else ""
 lon_val = str(st.session_state.clicked_location["lng"]) if st.session_state.clicked_location else ""
 addr_val = st.session_state.clicked_address or ""
@@ -81,15 +84,16 @@ if st.sidebar.button("추가하기"):
                 "address": addr,
                 "desc": desc
             })
-            st.success(f"'{name}' 장소가 지도에 추가되었습니다.")
+            st.success(f"✅ '{name}' 장소가 추가되었습니다.")
             st.session_state.clicked_location = None
             st.session_state.clicked_address = ""
+            st.rerun()  # ✅ 최신 방식
         except ValueError:
-            st.sidebar.error("위도와 경도는 숫자로 입력해주세요.")
+            st.sidebar.error("⚠️ 위도와 경도는 숫자로 입력해주세요.")
     else:
-        st.sidebar.error("장소 이름, 위도, 경도를 모두 입력해주세요.")
+        st.sidebar.error("⚠️ 장소 이름, 위도, 경도를 모두 입력해주세요.")
 
-# 📄 북마크 목록 + 삭제 기능
+# 📄 북마크 목록 + 삭제
 st.subheader("📌 저장된 북마크 목록")
 
 if st.session_state.bookmarks:
@@ -105,6 +109,6 @@ if st.session_state.bookmarks:
         with col2:
             if st.button("❌ 삭제", key=f"delete_{i}"):
                 del st.session_state.bookmarks[i]
-                st.experimental_rerun()
+                st.rerun()  # ✅ 최신 방식
 else:
     st.info("아직 북마크가 없습니다. 왼쪽에서 추가해주세요.")
