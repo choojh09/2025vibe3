@@ -57,8 +57,8 @@ def get_province(name: str) -> str:
     return m.group(1) if m else name
 
 # province 컬럼 추가
- df_total["province"] = df_total[region_col].apply(get_province)
- df_mf["province"]    = df_mf[region_col].apply(get_province)
+df_total["province"] = df_total[region_col].apply(get_province)
+df_mf["province"]    = df_mf[region_col].apply(get_province)
 
 # ───────────────────────────────────────────
 # 사이드바: 페이지 선택
@@ -71,9 +71,7 @@ page = st.sidebar.radio("페이지 선택", ["지역별", "성별별", "연령�
 if page == "지역별":
     st.header("📈 지역별(시·도) 연령별 총인구 꺾은선 그래프")
     provinces = sorted(df_total["province"].unique())
-    sel_provinces = st.sidebar.multiselect(
-        "지역 선택", provinces, default=provinces
-    )
+    sel_provinces = st.sidebar.multiselect("지역 선택", provinces, default=provinces)
     if not sel_provinces:
         sel_provinces = provinces
 
@@ -84,10 +82,8 @@ if page == "지역별":
         data[prov] = counts
     df_line = pd.DataFrame(data)
 
-    fig = px.line(
-        df_line, x="연령", y=sel_provinces, markers=True,
-        labels={"value":"인구수","연령":""}
-    )
+    fig = px.line(df_line, x="연령", y=sel_provinces, markers=True,
+                  labels={"value":"인구수","연령":""})
     st.plotly_chart(fig, use_container_width=True)
 
 elif page == "성별별":
@@ -104,10 +100,8 @@ elif page == "성별별":
         "남자": male_counts,
         "여자": female_counts
     })
-    fig = px.bar(
-        df_gen, x="연령", y=["남자","여자"], barmode="group",
-        labels={"value":"인구수","variable":"성별","연령":""}
-    )
+    fig = px.bar(df_gen, x="연령", y=["남자","여자"], barmode="group",
+                 labels={"value":"인구수","variable":"성별","연령":""})
     st.plotly_chart(fig, use_container_width=True)
 
 else:  # 연령대별
@@ -124,8 +118,6 @@ else:  # 연령대별
     df_age["연령대"] = pd.cut(df_age["age"], bins=bins, labels=labels, right=False)
 
     df_grp = df_age.groupby("연령대")["total"].sum().reset_index()
-    fig = px.line(
-        df_grp, x="연령대", y="total", markers=True,
-        labels={"total":"인구수","연령대":"연령대"}
-    )
+    fig = px.line(df_grp, x="연령대", y="total", markers=True,
+                  labels={"total":"인구수","연령대":"연령대"})
     st.plotly_chart(fig, use_container_width=True)
