@@ -11,36 +11,14 @@ st.title("📍 나만의 북마크 지도")
 if 'bookmarks' not in st.session_state:
     st.session_state.bookmarks = []
 
-# 📌 북마크 입력
-with st.sidebar:
-    st.header("➕ 북마크 추가")
-    name = st.text_input("장소 이름")
-    lat = st.text_input("위도 (예: 37.5665)")
-    lon = st.text_input("경도 (예: 126.9780)")
-    desc = st.text_area("설명", height=100)
-    add_btn = st.button("추가하기")
+# 클릭으로 선택한 좌표 저장
+if 'clicked_location' not in st.session_state:
+    st.session_state.clicked_location = None
 
-    if add_btn:
-        if name and lat and lon:
-            try:
-                lat = float(lat)
-                lon = float(lon)
-                st.session_state.bookmarks.append({
-                    "name": name,
-                    "lat": lat,
-                    "lon": lon,
-                    "desc": desc
-                })
-                st.success(f"'{name}' 장소가 지도에 추가되었습니다.")
-            except ValueError:
-                st.error("위도와 경도는 숫자로 입력해주세요.")
-        else:
-            st.error("장소 이름, 위도, 경도를 모두 입력해주세요.")
-
-# 🌏 지도 생성
+# 지도 생성
 m = folium.Map(location=[37.5665, 126.9780], zoom_start=11)
 
-# 북마크 마커 추가
+# 기존 북마크 마커 표시
 for b in st.session_state.bookmarks:
     folium.Marker(
         [b["lat"], b["lon"]],
@@ -48,10 +26,44 @@ for b in st.session_state.bookmarks:
         popup=f"<b>{b['name']}</b><br>{b['desc']}"
     ).add_to(m)
 
-# 지도 표시
-st_data = st_folium(m, width=1000, height=600)
+# 클릭 가능한 지도 생성
+clicked_data = st_folium(m, width=1000, height=600)
 
-# 📄 북마크 목록 표시
+# 클릭한 위치 저장
+if clicked_data and clicked_data.get("last_clicked"):
+    st.session_state.clicked_location = clicked_data["last_clicked"]
+
+# 📌 북마크 입력
+st.sidebar.header("➕ 북마크 추가")
+
+name = st.sidebar.text_input("장소 이름")
+
+# 클릭한 좌표를 자동 입력
+lat = st.sidebar.text_input("위도", 
+    value=str(st.session_state.clicked_location["lat"]) if st.session_state.clicked_location else "")
+lon = st.sidebar.text_input("경도", 
+    value=str(st.session_state.clicked_location["lng"]) if st.session_state.clicked_location else "")
+desc = st.sidebar.text_area("설명", height=100)
+
+if st.sidebar.button("추가하기"):
+    if name and lat and lon:
+        try:
+            lat = float(lat)
+            lon = float(lon)
+            st.session_state.bookmarks.append({
+                "name": name,
+                "lat": lat,
+                "lon": lon,
+                "desc": desc
+            })
+            st.success(f"'{name}' 장소가 지도에 추가되었습니다.")
+            st.session_state.clicked_location = None  # 입력 후 초기화
+        except ValueError:
+            st.sidebar.error("위도와 경도는 숫자로 입력해주세요.")
+    else:
+        st.sidebar.error("장소 이름, 위도, 경도를 모두 입력해주세요.")
+
+# 📄 북마크 목록
 if st.session_state.bookmarks:
     st.subheader("📌 저장된 북마크 목록")
     df = pd.DataFrame(st.session_state.bookmarks)
