@@ -3,14 +3,14 @@ import pandas as pd
 import plotly.express as px
 import requests
 import io
-from requests.exceptions import HTTPError
+import re
 
 # ───────────────────────────────────────────
 # 설정
 # ───────────────────────────────────────────
 st.set_page_config(page_title="인구 대시보드", layout="wide")
 
-# 자동 다운로드용 URL (실제 URL이 없다면 실패합니다)
+# 자동 다운로드용 URL (실제 URL이 없으면 실패합니다)
 MF_URL    = "https://example.com/202506_연령별인구현황_월간_남여구분.csv"
 TOTAL_URL = "https://example.com/202506_연령별인구현황_월간_합계.csv"
 
@@ -26,6 +26,7 @@ def load_csv_from_url(url: str) -> pd.DataFrame | None:
         return pd.read_csv(io.BytesIO(r.content), encoding="cp949")
     except Exception:
         return None
+
 
 def load_csv_from_local(path: str) -> pd.DataFrame | None:
     try:
@@ -55,7 +56,7 @@ if df_mf is None or df_total is None:
     uploaded_mf    = st.sidebar.file_uploader("남여구분 CSV 업로드",    type="csv")
     uploaded_tot   = st.sidebar.file_uploader("합계 CSV 업로드",      type="csv")
     if uploaded_mf:
-        df_mf = pd.read_csv(io.BytesIO(uploaded_mf.read()), encoding="cp949")
+        df_mf    = pd.read_csv(io.BytesIO(uploaded_mf.read()), encoding="cp949")
     if uploaded_tot:
         df_total = pd.read_csv(io.BytesIO(uploaded_tot.read()), encoding="cp949")
 
@@ -70,8 +71,8 @@ if df_mf is not None and df_total is not None:
     sel_region = st.sidebar.selectbox("📍 시·군·구 선택", regions)
 
     # 선택 행
-    row_mf    = df_mf[df_mf[region_col] == sel_region].iloc[0]
-    row_tot   = df_total[df_total[region_col] == sel_region].iloc[0]
+    row_mf  = df_mf[df_mf[region_col] == sel_region].iloc[0]
+    row_tot = df_total[df_total[region_col] == sel_region].iloc[0]
 
     # 연령·성별 파싱
     male_cols = [c for c in df_mf.columns if "_남_" in c and "세" in c]
@@ -116,15 +117,31 @@ if df_mf is not None and df_total is not None:
         st.plotly_chart(fig, use_container_width=True)
 
     else:  # 연령대별
-        st.header(f"📊 {sel_region} 10세 단위 연령대별 인구 합계 (2025‑06)")
-        nums = [int(a.replace("세","")) for a in ages]
-        df_a = pd.DataFrame({"age": nums, "cnt": total_counts})
-        bins = list(range(0,101,10))+[200]
+        st.header(f"📊 {sel_region} 10세 단위 연령대별 인구 비교 (2025‑06)")
+        # 나이 숫자 변환
+        nums = []
+        for a in ages:
+            m = re.search(r"(\d+)", a)
+            nums.append(int(m.group(1)) if m else 0)
+        # 연령대 지정
+        bins = list(range(0, 101, 10)) + [200]
         labels = [f"{bins[i]}-{bins[i+1]-1}" for i in range(len(bins)-1)]
-        df_a["연령대"] = pd.cut(df_a["age"], bins=bins, labels=labels, right=False)
-        df_agg = df_a.groupby("연령대")["cnt"].sum().reset_index()
-        fig = px.bar(df_agg, x="연령대", y="cnt",
-                     labels={"연령대":"연령대","cnt":"인구수"})
+
+        df_age = pd.DataFrame({
+            "age": nums,
+            "남자": male_counts,
+            "여자": female_counts
+        })
+        df_age["연령대"] = pd.cut(df_age["age"], bins=bins, labels=labels, right=False)
+        df_grp = df_age.groupby("연령대")[['남자','여자']].sum().reset_index()
+
+        fig = px.bar(
+            df_grp,
+            x="연령대",
+            y=["남자","여자"],
+            barmode="group",
+            labels={"value":"인구수","variable":"성별","연령대":"연령대"}
+        )
         st.plotly_chart(fig, use_container_width=True)
 
     # 원본 데이터 보기
