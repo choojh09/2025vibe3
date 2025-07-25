@@ -91,8 +91,10 @@ if df_mf is not None and df_total is not None:
     if page == "지역별":
         st.header("📈 지역별(도/광역시) 연령 분포 꺾은선 그래프")
         # 상위 지역 리스트
-        provinces = sorted(df_total['province'].unique().tolist())
-        sel_provinces = st.sidebar.multiselect("📍 지역 그룹 선택", provinces, default=["서울특별시","전라북도"])
+        provinces = sorted(df_total['province'].unique().tolist())        default_provinces = [p for p in ["서울특별시", "전라북도"] if p in provinces]
+        sel_provinces = st.sidebar.multiselect("📍 지역 그룹 선택", provinces, default=default_provinces)
+        if not sel_provinces:
+            sel_provinces = provinces
 
         # 각 상위 지역별 연령대별 총인구 합계 계산
         data = {'연령': age_labels}
