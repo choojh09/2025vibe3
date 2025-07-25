@@ -85,19 +85,33 @@ fert_df[region_col] = fert_df[region_col].astype(str).str.strip()
 fert_df['TFR'] = pd.to_numeric(fert_df['TFR'], errors='coerce')
 fert_df = fert_df.groupby(region_col, as_index=False)['TFR'].mean()
 
-# 머지 및 지수 계산
+# ------------------ 머지 및 지수 계산 ------------------
+# ① 인구 → ② PPI(좌 join) → ③ TFR(좌 join)
 merged = pop_df[[region_col, 'total_pop', 'work_ratio']].copy()
 merged[region_col] = merged[region_col].astype(str).str.strip()
-merged = merged.merge(ppi_df, on=region_col, how='inner').merge(fert_df, on=region_col, how='inner')
-merged = pop_df[[region_col, 'total_pop', 'work_ratio']].merge(ppi_df, on=region_col, how='inner').merge(fert_df, on=region_col, how='inner')
+
+merged = merged.merge(ppi_df, on=region_col, how='left').merge(fert_df, on=region_col, how='left')
+
+# 결측 확인
+missing_ppi  = merged['PPI'].isna().sum()
+missing_tfr  = merged['TFR'].isna().sum()
+
+if missing_ppi or missing_tfr:
+    st.sidebar.warning(f"⚠️ PPI 결측 {missing_ppi}건 · TFR 결측 {missing_tfr}건 — 해당 지역은 지수 계산에서 제외됩니다.")
+
 merged = merged.dropna(subset=['PPI', 'TFR'])
+
+if merged.empty:
+    st.error("❌ 공통 지역이 없어 지표를 계산할 수 없습니다. 업로드 파일의 지역명이 서로 일치하는지 확인하세요.")
+    st.stop()
+
 merged['EDI'] = merged['PPI'] * (merged['work_ratio'] / 100)
 merged['FDI'] = merged['EDI'] * merged['TFR']
 
 # --------------------------------------------------------------------------------
 # 4. 대시보드 뷰 선택
 # --------------------------------------------------------------------------------
-view = st.sidebar.radio("보기", ["지표 표", "EDI/FDI 산점도", "인구 피라미드"])
+view = st.sidebar.radio("보기", ["지표 표", "EDI/FDI 산점도", "인구 피라미드"])("보기", ["지표 표", "EDI/FDI 산점도", "인구 피라미드"])
 
 if view == "지표 표":
     st.subheader("📊 지역별 경제 지표 표")
